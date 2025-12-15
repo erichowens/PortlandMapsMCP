@@ -94,22 +94,20 @@ export class PortlandMapsClient {
       const suggestions: PropertySuggestion[] = data.candidates || [];
       
       // Convert suggestions to address candidates
-      const candidates: AddressCandidate[] = suggestions
-        .filter(s => {
-          // If bbox is provided, we would filter by coordinates
-          // For now, we'll include all results since we don't have coordinates yet
-          return true;
-        })
+      let candidates: AddressCandidate[] = suggestions
         .map((suggestion, index) => {
           // Calculate a score based on position (first results are better)
           const score = Math.max(100 - (index * 5), 50);
           
+          // Note: Portland Maps API doesn't provide coordinates directly
+          // We use Portland city center as default. In a production implementation,
+          // you would geocode these addresses using the ArcGIS geocoder or similar.
           const candidate: AddressCandidate = {
             normalized_address: suggestion.label,
             score: score,
             property_id: suggestion.value || undefined,
             taxlot_id: undefined, // Portland Maps API doesn't always provide this
-            x_lon: -122.6765, // Default to Portland center - would need geocoding
+            x_lon: -122.6765, // Portland center - needs geocoding for accurate coords
             y_lat: 45.5155,
             source: 'portlandmaps_api' as const
           };
@@ -119,8 +117,19 @@ export class PortlandMapsClient {
           }
 
           return candidate;
-        })
-        .slice(0, maxResults);
+        });
+
+      // Apply bounding box filter if provided
+      if (bbox && bbox.length === 4) {
+        const [minLon, minLat, maxLon, maxLat] = bbox;
+        candidates = candidates.filter(c => 
+          c.x_lon >= minLon && c.x_lon <= maxLon &&
+          c.y_lat >= minLat && c.y_lat <= maxLat
+        );
+      }
+      
+      // Limit to max_results after filtering
+      candidates = candidates.slice(0, maxResults);
 
       return {
         candidates,

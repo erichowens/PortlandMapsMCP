@@ -101,8 +101,10 @@ Resolve a human-entered address or partial query into normalized address candida
   - `score`: Confidence score (0-100)
   - `property_id`: Stable property identifier
   - `taxlot_id`: Tax lot identifier (if available)
-  - `x_lon`, `y_lat`: WGS84 coordinates
+  - `x_lon`, `y_lat`: WGS84 coordinates (currently defaults to Portland center; full geocoding would require additional ArcGIS integration)
   - `source`: Data provenance (portlandmaps_api, arcgis_geocoder, internal_fallback)
+
+**Note:** Current implementation uses Portland Maps suggest API. For precise coordinates, future versions could integrate with ArcGIS geocoder services.
 
 **Example:**
 ```
