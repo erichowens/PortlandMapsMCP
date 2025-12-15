@@ -16,6 +16,20 @@ This MCP server enables large language models (LLMs) like Claude, ChatGPT, and o
 
 All responses include proper attribution and disclaimers directing users to the official Portland Maps website. The `resolve_address` tool provides typed outputs with data provenance tracking (portlandmaps_api, arcgis_geocoder, internal_fallback).
 
+## API Requirements & Authentication
+
+### Portland Maps API
+- **Suggest API**: Currently uses the public suggest endpoint which does not require authentication for basic queries
+- **Full API Access**: For production use with higher rate limits, you may need to request an API key from [portlandmaps.com/development](https://www.portlandmaps.com/development/)
+- **Rate Limiting**: Public endpoints have rate limits; monitor `X-Rate-Limit-*` headers in responses
+
+### ArcGIS Geocoding
+- **Oregon Geocoder**: Uses the public Oregon Address geocoder service (`navigator.state.or.us`) - no API key required for basic use
+- **World Geocoder**: Falls back to ArcGIS World Geocoder (`geocode.arcgis.com`) - free for limited use, API key recommended for production
+- **Production Use**: For high-volume geocoding, consider registering for an ArcGIS Developer account at [developers.arcgis.com](https://developers.arcgis.com)
+
+**Note:** The current implementation works without API keys for demonstration and light use. For production deployments, obtain appropriate API keys and configure environment variables as needed.
+
 ## Installation
 
 ### Prerequisites
@@ -101,10 +115,10 @@ Resolve a human-entered address or partial query into normalized address candida
   - `score`: Confidence score (0-100)
   - `property_id`: Stable property identifier
   - `taxlot_id`: Tax lot identifier (if available)
-  - `x_lon`, `y_lat`: WGS84 coordinates (currently defaults to Portland center; full geocoding would require additional ArcGIS integration)
+  - `x_lon`, `y_lat`: Accurate WGS84 coordinates from ArcGIS Oregon geocoder
   - `source`: Data provenance (portlandmaps_api, arcgis_geocoder, internal_fallback)
 
-**Note:** Current implementation uses Portland Maps suggest API. For precise coordinates, future versions could integrate with ArcGIS geocoder services.
+**Geocoding:** Uses Oregon-specific ArcGIS geocoder for precise coordinates with automatic fallback to world geocoder if needed.
 
 **Example:**
 ```
@@ -162,11 +176,26 @@ Here are some example queries you can make through an LLM using this MCP server:
 
 This server integrates with:
 
-- **Portland Maps API**: Property search and suggestions
+- **Portland Maps API**: Property search and suggestions (`portlandmaps.com/api/suggest`)
 - **Portland Maps OpenData**: Property details and GIS data
 - **Portland Bureau of Planning and Sustainability**: Zoning information
+- **ArcGIS Oregon Geocoder**: Precise coordinate geocoding (`navigator.state.or.us`)
+- **ArcGIS World Geocoder**: Fallback geocoding service (`geocode.arcgis.com`)
 
-All data is publicly available from the City of Portland.
+### Geocoding Implementation
+
+The `resolve_address` tool uses a multi-tiered approach for accurate coordinates:
+
+1. **Primary**: Oregon-specific ArcGIS geocoder for high-accuracy Portland addresses
+2. **Fallback**: ArcGIS World Geocoder if Oregon service is unavailable
+3. **Last Resort**: Portland city center coordinates if all geocoding fails
+
+This ensures addresses always have coordinates, with provenance tracking via the `source` field:
+- `arcgis_geocoder`: Coordinates from ArcGIS services (highest accuracy)
+- `portlandmaps_api`: Property data from Portland Maps without geocoding
+- `internal_fallback`: Default coordinates when geocoding unavailable
+
+All data is publicly available from the City of Portland and ESRI/ArcGIS services.
 
 ## Attribution & Disclaimer
 
