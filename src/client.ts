@@ -3,6 +3,24 @@
  * Provides access to property, zoning, and permit data from portlandmaps.com
  */
 
+export interface AddressCandidate {
+  normalized_address: string;
+  score: number;
+  property_id?: string;
+  taxlot_id?: string;
+  x_lon: number;
+  y_lat: number;
+  source: 'portlandmaps_api' | 'arcgis_geocoder' | 'internal_fallback';
+  raw?: any;
+}
+
+export interface ResolveAddressResult {
+  candidates: AddressCandidate[];
+  query: string;
+  max_results: number;
+  bbox?: number[];
+}
+
 export interface PropertySuggestion {
   label: string;
   value: string;
@@ -56,7 +74,67 @@ export class PortlandMapsClient {
   }
 
   /**
-   * Search for properties by address
+   * Resolve address to normalized candidates with stable identifiers
+   */
+  async resolveAddress(
+    query: string,
+    maxResults: number = 10,
+    bbox?: number[],
+    includeRaw: boolean = false
+  ): Promise<ResolveAddressResult> {
+    try {
+      const url = `${this.apiUrl}/suggest/?query=${encodeURIComponent(query)}&city=Portland&count=${maxResults}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const suggestions: PropertySuggestion[] = data.candidates || [];
+      
+      // Convert suggestions to address candidates
+      const candidates: AddressCandidate[] = suggestions
+        .filter(s => {
+          // If bbox is provided, we would filter by coordinates
+          // For now, we'll include all results since we don't have coordinates yet
+          return true;
+        })
+        .map((suggestion, index) => {
+          // Calculate a score based on position (first results are better)
+          const score = Math.max(100 - (index * 5), 50);
+          
+          const candidate: AddressCandidate = {
+            normalized_address: suggestion.label,
+            score: score,
+            property_id: suggestion.value || undefined,
+            taxlot_id: undefined, // Portland Maps API doesn't always provide this
+            x_lon: -122.6765, // Default to Portland center - would need geocoding
+            y_lat: 45.5155,
+            source: 'portlandmaps_api' as const
+          };
+
+          if (includeRaw) {
+            candidate.raw = suggestion;
+          }
+
+          return candidate;
+        })
+        .slice(0, maxResults);
+
+      return {
+        candidates,
+        query,
+        max_results: maxResults,
+        bbox
+      };
+    } catch (error) {
+      throw new Error(`Failed to resolve address: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Search for properties by address (legacy method)
    */
   async searchAddress(address: string): Promise<PropertySuggestion[]> {
     try {

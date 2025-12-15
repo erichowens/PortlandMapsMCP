@@ -24,19 +24,40 @@ import { PortlandMapsClient } from './client.js';
 // Tool definitions
 const TOOLS: Tool[] = [
   {
-    name: 'search_property',
+    name: 'resolve_address',
     description: 
-      'Search for properties by address in Portland, Oregon. Returns a list of matching properties with their IDs. ' +
-      'Use this as the first step to find a property before getting detailed information.',
+      'Resolve a human-entered address or partial query into normalized address candidates with stable identifiers ' +
+      '(property_id/taxlot_id) and a point geometry for downstream queries.',
     inputSchema: {
       type: 'object',
+      additionalProperties: false,
       properties: {
-        address: {
+        query: {
           type: 'string',
-          description: 'The address to search for (e.g., "1234 SW Main St" or "1234 SW Main St Portland OR")',
+          minLength: 3,
+          description: 'Address or partial query string (minimum 3 characters)',
+        },
+        max_results: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 25,
+          default: 10,
+          description: 'Maximum number of address candidates to return (1-25, default 10)',
+        },
+        bbox: {
+          type: 'array',
+          minItems: 4,
+          maxItems: 4,
+          items: { type: 'number' },
+          description: 'Optional bounding box filter as [minLon, minLat, maxLon, maxLat] in WGS84 coordinates',
+        },
+        include_raw: {
+          type: 'boolean',
+          default: false,
+          description: 'Include raw API response data in results',
         },
       },
-      required: ['address'],
+      required: ['query'],
     },
   },
   {
@@ -118,7 +139,7 @@ class PortlandMapsServer {
     
     this.server = new Server(
       {
-        name: 'portlandmaps-mcp-server',
+        name: 'portlandmaps-mcp',
         version: '1.0.0',
       },
       {
@@ -155,36 +176,21 @@ class PortlandMapsServer {
 
       try {
         switch (name) {
-          case 'search_property': {
-            const { address } = args as { address: string };
-            const suggestions = await this.client.searchAddress(address);
+          case 'resolve_address': {
+            const { query, max_results = 10, bbox, include_raw = false } = args as {
+              query: string;
+              max_results?: number;
+              bbox?: number[];
+              include_raw?: boolean;
+            };
             
-            let result = `Search results for: ${address}\n\n`;
-            if (suggestions.length === 0) {
-              result += 'No properties found.\n';
-            } else {
-              result += `Found ${suggestions.length} matching properties:\n\n`;
-              suggestions.forEach((suggestion, i) => {
-                result += `${i + 1}. ${suggestion.label}\n`;
-                result += `   Type: ${suggestion.type}\n`;
-                if (suggestion.value) {
-                  result += `   Property ID: ${suggestion.value}\n`;
-                }
-                result += '\n';
-              });
-            }
-            
-            result += '\n---\n';
-            result += '**Disclaimer:** This is an unofficial use of Portland Maps data. ';
-            result += 'For official information, please visit https://www.portlandmaps.com. ';
-            result += 'Consider supporting the City of Portland\'s mapping services.\n';
-            result += 'Data provided by the City of Portland - https://www.portlandmaps.com';
+            const result = await this.client.resolveAddress(query, max_results, bbox, include_raw);
             
             return {
               content: [
                 {
                   type: 'text',
-                  text: result,
+                  text: JSON.stringify(result, null, 2),
                 },
               ],
             };

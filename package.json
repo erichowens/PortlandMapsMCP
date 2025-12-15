@@ -1,11 +1,11 @@
 {
-  "name": "portlandmaps-mcp-server",
+  "name": "portlandmaps-mcp",
   "version": "1.0.0",
-  "description": "Model Context Protocol server for Portland Maps, enabling AI assistants to query property zoning, history, and restrictions",
+  "description": "Model Context Protocol server exposing PortlandMaps + ArcGIS-backed property and GIS datasets as typed tools with provenance",
   "main": "build/index.js",
   "type": "module",
   "bin": {
-    "portlandmaps-mcp-server": "./build/index.js"
+    "portlandmaps-mcp": "./build/index.js"
   },
   "scripts": {
     "build": "tsc && chmod +x build/index.js",

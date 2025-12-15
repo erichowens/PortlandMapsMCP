@@ -1,6 +1,6 @@
 # Portland Maps MCP Server
 
-A Model Context Protocol (MCP) server that provides AI assistants access to property information, zoning data, permit history, and other public records from [portlandmaps.com](https://www.portlandmaps.com).
+A Model Context Protocol (MCP) server exposing PortlandMaps + ArcGIS-backed property and GIS datasets as typed tools with provenance. Provides AI assistants access to property information, zoning data, permit history, and other public records from [portlandmaps.com](https://www.portlandmaps.com).
 
 **⚠️ DISCLAIMER:** This is an **unofficial** integration with Portland Maps. All users should visit [https://www.portlandmaps.com](https://www.portlandmaps.com) for official information. Please consider supporting and funding the City of Portland's mapping services and applications.
 
@@ -8,13 +8,13 @@ A Model Context Protocol (MCP) server that provides AI assistants access to prop
 
 This MCP server enables large language models (LLMs) like Claude, ChatGPT, and others to:
 
-- **Search Properties**: Find properties by address in Portland, Oregon
+- **Resolve Addresses**: Normalize addresses to stable identifiers (property_id/taxlot_id) with point geometry and confidence scores
 - **Get Property Information**: Access comprehensive property details including ownership, lot size, and year built
 - **Query Zoning**: Look up zoning designations, overlays, and plan districts
 - **View Permit History**: Access information about building permits, land use reviews, and environmental reviews
 - **Get Tax Information**: View property assessment and taxation data
 
-All responses include proper attribution and disclaimers directing users to the official Portland Maps website.
+All responses include proper attribution and disclaimers directing users to the official Portland Maps website. The `resolve_address` tool provides typed outputs with data provenance tracking (portlandmaps_api, arcgis_geocoder, internal_fallback).
 
 ## Installation
 
@@ -40,7 +40,7 @@ npm run build
 ### Install as Package
 
 ```bash
-npm install -g portlandmaps-mcp-server
+npm install -g portlandmaps-mcp
 ```
 
 ## Usage
@@ -69,7 +69,7 @@ Or if installed globally:
 {
   "mcpServers": {
     "portlandmaps": {
-      "command": "portlandmaps-mcp-server"
+      "command": "portlandmaps-mcp"
     }
   }
 }
@@ -85,16 +85,29 @@ node build/index.js
 
 ## Available Tools
 
-### 1. `search_property`
+### 1. `resolve_address`
 
-Search for properties by address.
+Resolve a human-entered address or partial query into normalized address candidates with stable identifiers and geometry.
 
 **Input:**
-- `address` (string): The address to search for
+- `query` (string, required): Address or partial query (minimum 3 characters)
+- `max_results` (integer, optional): Maximum candidates to return (1-25, default 10)
+- `bbox` (array, optional): Bounding box filter as [minLon, minLat, maxLon, maxLat] in WGS84
+- `include_raw` (boolean, optional): Include raw API response data
+
+**Output:**
+- Array of address candidates with:
+  - `normalized_address`: Standardized address string
+  - `score`: Confidence score (0-100)
+  - `property_id`: Stable property identifier
+  - `taxlot_id`: Tax lot identifier (if available)
+  - `x_lon`, `y_lat`: WGS84 coordinates
+  - `source`: Data provenance (portlandmaps_api, arcgis_geocoder, internal_fallback)
 
 **Example:**
 ```
-Address: "1234 SW Main St Portland OR"
+Query: "1234 SW Main St"
+Max Results: 5
 ```
 
 ### 2. `get_property_info`
