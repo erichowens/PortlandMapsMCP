@@ -159,25 +159,27 @@ export class PortlandMapsClient {
       
       // Convert suggestions to address candidates with geocoding
       const candidatePromises = suggestions.map(async (suggestion, index) => {
-        // Calculate a score based on position (first results are better)
-        const baseScore = Math.max(100 - (index * 5), 50);
+        // Calculate a position-based relevance score (first results are more relevant)
+        const positionScore = Math.max(100 - (index * 5), 50);
         
         // Geocode the address using ArcGIS for accurate coordinates
         const geocodeResult = await this.geocodeWithArcGIS(suggestion.label);
         
         let x_lon = -122.6765; // Portland center as fallback
         let y_lat = 45.5155;
-        let score = baseScore;
+        let score = positionScore;
         let source: 'portlandmaps_api' | 'arcgis_geocoder' | 'internal_fallback' = 'internal_fallback';
         
         if (geocodeResult) {
           x_lon = geocodeResult.x;
           y_lat = geocodeResult.y;
-          // Combine Portland Maps position score with ArcGIS geocode score
-          score = Math.round((baseScore + geocodeResult.score) / 2);
+          // ArcGIS score is already 0-100, so we weight it more heavily (70%)
+          // since it represents actual geocoding confidence, while position (30%)
+          // represents search result relevance
+          score = Math.round((geocodeResult.score * 0.7) + (positionScore * 0.3));
           source = 'arcgis_geocoder';
         } else {
-          // If geocoding fails, use Portland Maps API as source
+          // If geocoding fails, use position score only
           source = 'portlandmaps_api';
         }
         
