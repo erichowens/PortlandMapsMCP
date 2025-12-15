@@ -59,6 +59,8 @@ export class PortlandMapsClient {
   private readonly baseUrl = 'https://www.portlandmaps.com';
   private readonly apiUrl = `${this.baseUrl}/api`;
   private readonly odUrl = `${this.baseUrl}/od/rest/services`;
+  private readonly arcgisGeocoder = 'https://navigator.state.or.us/arcgis/rest/services/Locators/OregonAddress/GeocodeServer/findAddressCandidates';
+  private readonly arcgisWorldGeocoder = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates';
 
   /**
    * Add disclaimer to all results
@@ -71,6 +73,68 @@ export class PortlandMapsClient {
       'Consider supporting the City of Portland\'s mapping services.\n' +
       'Data provided by the City of Portland - https://www.portlandmaps.com';
     return data + disclaimer;
+  }
+
+  /**
+   * Geocode an address using ArcGIS Oregon geocoder
+   */
+  private async geocodeWithArcGIS(address: string): Promise<{ x: number; y: number; score: number } | null> {
+    try {
+      // Try Oregon-specific geocoder first for better accuracy
+      const url = `${this.arcgisGeocoder}?SingleLine=${encodeURIComponent(address + ', Portland, OR')}&outSR=4326&f=json&maxLocations=1`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        // Fallback to world geocoder if Oregon service fails
+        return this.geocodeWithWorldGeocoder(address);
+      }
+
+      const data = await response.json();
+      if (data.candidates && data.candidates.length > 0) {
+        const candidate = data.candidates[0];
+        return {
+          x: candidate.location.x,
+          y: candidate.location.y,
+          score: candidate.score
+        };
+      }
+      
+      // Fallback to world geocoder if no results
+      return this.geocodeWithWorldGeocoder(address);
+    } catch (error) {
+      console.error('ArcGIS Oregon geocoder error:', error);
+      // Fallback to world geocoder
+      return this.geocodeWithWorldGeocoder(address);
+    }
+  }
+
+  /**
+   * Geocode an address using ArcGIS World geocoder (fallback)
+   */
+  private async geocodeWithWorldGeocoder(address: string): Promise<{ x: number; y: number; score: number } | null> {
+    try {
+      const url = `${this.arcgisWorldGeocoder}?singleLine=${encodeURIComponent(address + ', Portland, OR')}&outFields=Match_addr&f=json&maxLocations=1`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      if (data.candidates && data.candidates.length > 0) {
+        const candidate = data.candidates[0];
+        return {
+          x: candidate.location.x,
+          y: candidate.location.y,
+          score: candidate.score
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('ArcGIS World geocoder error:', error);
+      return null;
+    }
   }
 
   /**
@@ -93,31 +157,49 @@ export class PortlandMapsClient {
       const data = await response.json();
       const suggestions: PropertySuggestion[] = data.candidates || [];
       
-      // Convert suggestions to address candidates
-      let candidates: AddressCandidate[] = suggestions
-        .map((suggestion, index) => {
-          // Calculate a score based on position (first results are better)
-          const score = Math.max(100 - (index * 5), 50);
-          
-          // Note: Portland Maps API doesn't provide coordinates directly
-          // We use Portland city center as default. In a production implementation,
-          // you would geocode these addresses using the ArcGIS geocoder or similar.
-          const candidate: AddressCandidate = {
-            normalized_address: suggestion.label,
-            score: score,
-            property_id: suggestion.value || undefined,
-            taxlot_id: undefined, // Portland Maps API doesn't always provide this
-            x_lon: -122.6765, // Portland center - needs geocoding for accurate coords
-            y_lat: 45.5155,
-            source: 'portlandmaps_api' as const
-          };
+      // Convert suggestions to address candidates with geocoding
+      const candidatePromises = suggestions.map(async (suggestion, index) => {
+        // Calculate a score based on position (first results are better)
+        const baseScore = Math.max(100 - (index * 5), 50);
+        
+        // Geocode the address using ArcGIS for accurate coordinates
+        const geocodeResult = await this.geocodeWithArcGIS(suggestion.label);
+        
+        let x_lon = -122.6765; // Portland center as fallback
+        let y_lat = 45.5155;
+        let score = baseScore;
+        let source: 'portlandmaps_api' | 'arcgis_geocoder' | 'internal_fallback' = 'internal_fallback';
+        
+        if (geocodeResult) {
+          x_lon = geocodeResult.x;
+          y_lat = geocodeResult.y;
+          // Combine Portland Maps position score with ArcGIS geocode score
+          score = Math.round((baseScore + geocodeResult.score) / 2);
+          source = 'arcgis_geocoder';
+        } else {
+          // If geocoding fails, use Portland Maps API as source
+          source = 'portlandmaps_api';
+        }
+        
+        const candidate: AddressCandidate = {
+          normalized_address: suggestion.label,
+          score: score,
+          property_id: suggestion.value || undefined,
+          taxlot_id: undefined, // Portland Maps API doesn't always provide this
+          x_lon,
+          y_lat,
+          source
+        };
 
-          if (includeRaw) {
-            candidate.raw = suggestion;
-          }
+        if (includeRaw) {
+          candidate.raw = suggestion;
+        }
 
-          return candidate;
-        });
+        return candidate;
+      });
+
+      // Wait for all geocoding to complete
+      let candidates = await Promise.all(candidatePromises);
 
       // Apply bounding box filter if provided
       if (bbox && bbox.length === 4) {
