@@ -8,11 +8,19 @@
     "portlandmaps-mcp-server": "./build/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x build/index.js",
     "start": "node build/index.js",
     "dev": "tsc --watch",
     "prepare": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erichowens/PortlandMapsMCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/erichowens/PortlandMapsMCP/issues"
+  },
+  "homepage": "https://github.com/erichowens/PortlandMapsMCP#readme",
   "keywords": [
     "mcp",
     "modelcontextprotocol",
