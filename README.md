@@ -1,2 +1,241 @@
-# PortlandMapsMCP
-PortlandMaps MCP
+# Portland Maps MCP Server
+
+A Model Context Protocol (MCP) server that provides AI assistants access to property information, zoning data, permit history, and other public records from [portlandmaps.com](https://www.portlandmaps.com).
+
+**⚠️ DISCLAIMER:** This is an **unofficial** integration with Portland Maps. All users should visit [https://www.portlandmaps.com](https://www.portlandmaps.com) for official information. Please consider supporting and funding the City of Portland's mapping services and applications.
+
+## Features
+
+This MCP server enables large language models (LLMs) like Claude, ChatGPT, and others to:
+
+- **Search Properties**: Find properties by address in Portland, Oregon
+- **Get Property Information**: Access comprehensive property details including ownership, lot size, and year built
+- **Query Zoning**: Look up zoning designations, overlays, and plan districts
+- **View Permit History**: Access information about building permits, land use reviews, and environmental reviews
+- **Get Tax Information**: View property assessment and taxation data
+
+All responses include proper attribution and disclaimers directing users to the official Portland Maps website.
+
+## Installation
+
+### Prerequisites
+
+- Node.js 18.0.0 or higher
+- npm or yarn
+
+### Install from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/erichowens/PortlandMapsMCP.git
+cd PortlandMapsMCP
+
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+```
+
+### Install as Package
+
+```bash
+npm install -g portlandmaps-mcp-server
+```
+
+## Usage
+
+### With Claude Desktop
+
+Add the server to your Claude Desktop configuration file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "portlandmaps": {
+      "command": "node",
+      "args": ["/path/to/PortlandMapsMCP/build/index.js"]
+    }
+  }
+}
+```
+
+Or if installed globally:
+
+```json
+{
+  "mcpServers": {
+    "portlandmaps": {
+      "command": "portlandmaps-mcp-server"
+    }
+  }
+}
+```
+
+### With Other MCP Clients
+
+The server uses stdio transport and can be integrated with any MCP-compatible client:
+
+```bash
+node build/index.js
+```
+
+## Available Tools
+
+### 1. `search_property`
+
+Search for properties by address.
+
+**Input:**
+- `address` (string): The address to search for
+
+**Example:**
+```
+Address: "1234 SW Main St Portland OR"
+```
+
+### 2. `get_property_info`
+
+Get comprehensive property information.
+
+**Input:**
+- `address` (string): The property address
+
+**Returns:** Property details, zoning info, and links to official records
+
+### 3. `get_zoning_info`
+
+Get zoning information for a property.
+
+**Input:**
+- `address` (string): The address to look up
+
+**Returns:** Zoning designations and links to zoning maps
+
+### 4. `get_permit_history`
+
+Get permit history information.
+
+**Input:**
+- `address` (string): The address to look up
+
+**Returns:** Information about accessing permit records
+
+### 5. `get_tax_info`
+
+Get property tax and assessment information.
+
+**Input:**
+- `address` (string): The address to look up
+
+**Returns:** Links to tax and assessment information
+
+## Example Queries
+
+Here are some example queries you can make through an LLM using this MCP server:
+
+- "What is the zoning for 1234 SE Hawthorne Blvd in Portland?"
+- "Find permit history for 5678 N Mississippi Ave"
+- "What are the property tax details for 910 SW Oak St?"
+- "Search for properties at 1111 SW Broadway"
+- "Get comprehensive information about 2222 NE Alberta St"
+
+## Data Sources
+
+This server integrates with:
+
+- **Portland Maps API**: Property search and suggestions
+- **Portland Maps OpenData**: Property details and GIS data
+- **Portland Bureau of Planning and Sustainability**: Zoning information
+
+All data is publicly available from the City of Portland.
+
+## Attribution & Disclaimer
+
+This is an **unofficial** tool that accesses public data from Portland Maps. 
+
+- **Official Website**: https://www.portlandmaps.com
+- **Data Provider**: City of Portland, Oregon
+- **Zoning Information**: https://www.portlandmaps.com/bps/zoning/
+- **GIS Open Data**: https://gis-pdx.opendata.arcgis.com/
+
+**Please support the City of Portland's mapping services:**
+- Visit and use the official Portland Maps website
+- Support funding for City of Portland technology services
+- Provide feedback to the City to improve their services
+
+## Development
+
+### Build
+
+```bash
+npm run build
+```
+
+### Development Mode
+
+```bash
+npm run dev
+```
+
+This will watch for changes and rebuild automatically.
+
+### Project Structure
+
+```
+PortlandMapsMCP/
+├── src/
+│   ├── index.ts       # Main MCP server implementation
+│   └── client.ts      # Portland Maps API client
+├── build/             # Compiled JavaScript (generated)
+├── package.json       # Project configuration
+├── tsconfig.json      # TypeScript configuration
+└── README.md          # This file
+```
+
+## API Rate Limiting
+
+The Portland Maps API may have rate limits. This server does not implement caching or rate limiting. Users should:
+
+- Be mindful of request frequency
+- Consider implementing caching for production use
+- Contact the City of Portland for API access guidelines
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+Please ensure all contributions maintain proper attribution to Portland Maps and include appropriate disclaimers.
+
+## License
+
+MIT License - See [LICENSE](LICENSE) file for details
+
+This software is independent of the City of Portland. The Portland Maps data is provided by the City of Portland and subject to their terms of use.
+
+## Acknowledgments
+
+- **City of Portland** for providing public access to property data
+- **Portland Maps Team** for maintaining the excellent portlandmaps.com service
+- **Model Context Protocol** community for the MCP standard
+
+## Support
+
+For issues with this MCP server:
+- Open an issue on GitHub
+
+For issues with Portland Maps data or services:
+- Visit https://www.portlandmaps.com
+- Contact the City of Portland
+
+---
+
+**Remember**: This is an unofficial tool. Always verify critical information on the official Portland Maps website.
